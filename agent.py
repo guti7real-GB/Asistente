@@ -10,7 +10,7 @@ import pytz
 from groq import Groq
 
 import config
-from tools import notion_tools, calendar_tools
+from tools import notion_tools, calendar_tools, brief_tools
 
 cliente = Groq(api_key=config.GROQ_API_KEY)
 TZ = pytz.timezone(config.TIMEZONE)
@@ -174,6 +174,18 @@ HERRAMIENTAS = [
             },
         },
     },
+    {
+        "type": "function",
+        "function": {
+            "name": "proximos_partidos_colocolo",
+            "description": (
+                "Busca en internet los próximos partidos de Colo-Colo (rival, torneo, "
+                "fecha, hora en Chile y estadio). Úsala para cualquier consulta sobre "
+                "cuándo, dónde o contra quién juega Colo-Colo."
+            ),
+            "parameters": {"type": "object", "properties": {}},
+        },
+    },
 ]
 
 # Mapa nombre -> función real de Python
@@ -186,6 +198,7 @@ FUNCIONES = {
     "crear_evento": calendar_tools.crear_evento,
     "editar_evento": calendar_tools.editar_evento,
     "borrar_evento": calendar_tools.borrar_evento,
+    "proximos_partidos_colocolo": brief_tools.proximos_partidos_colocolo,
 }
 
 

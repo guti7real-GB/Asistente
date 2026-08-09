@@ -15,9 +15,12 @@ from telegram.ext import (
     filters,
 )
 
+import os
+import tempfile
+
 import config
 import agent
-from tools import calendar_tools
+from tools import calendar_tools, brief_tools, voz_tools
 
 logging.basicConfig(
     format="%(asctime)s - %(levelname)s - %(message)s", level=logging.INFO
@@ -87,6 +90,60 @@ async def recordatorio_diario(context: ContextTypes.DEFAULT_TYPE):
         )
 
 
+async def brief_matutino(context: ContextTypes.DEFAULT_TYPE):
+    """Resumen de cada mañana: próximos partidos de Colo-Colo."""
+    if not config.TELEGRAM_ALLOWED_CHAT_ID:
+        return
+    try:
+        partidos = brief_tools.proximos_partidos_colocolo()
+    except Exception as e:
+        partidos = f"(no disponible: {e})"
+    texto = "☀️ Buenos días.\n\n⚽ Próximos partidos de Colo-Colo:\n" + partidos
+    await context.bot.send_message(
+        chat_id=config.TELEGRAM_ALLOWED_CHAT_ID, text=texto
+    )
+
+
+async def manejar_voz(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Recibe una nota de voz, la transcribe, responde y contesta también en voz."""
+    if not _autorizado(update):
+        await update.message.reply_text("No estás autorizado para usar este bot.")
+        return
+    chat_id = update.effective_chat.id
+    await context.bot.send_chat_action(chat_id=chat_id, action="typing")
+
+    ruta = os.path.join(tempfile.gettempdir(), f"voz_{chat_id}.oga")
+    try:
+        archivo = await update.message.voice.get_file()
+        await archivo.download_to_drive(ruta)
+        texto = voz_tools.transcribir(ruta)
+    except Exception as e:
+        log.exception("Error transcribiendo voz")
+        await update.message.reply_text(f"No pude entender el audio: {e}")
+        return
+
+    if not texto:
+        await update.message.reply_text("No logré escuchar nada en el audio.")
+        return
+
+    historial = HISTORIALES.setdefault(chat_id, [])
+    try:
+        respuesta = agent.responder(texto, historial)
+    except Exception as e:
+        log.exception("Error en el agente (voz)")
+        respuesta = f"Ups, hubo un error: {e}"
+    if len(historial) > 40:
+        del historial[:-40]
+
+    await update.message.reply_text(f"🎙️ Entendí: {texto}\n\n{respuesta}")
+    try:
+        voz = voz_tools.sintetizar(respuesta)
+        with open(voz, "rb") as f:
+            await update.message.reply_voice(voice=f)
+    except Exception as e:
+        log.warning("No pude generar la voz de respuesta: %s", e)
+
+
 def main():
     config.check()
     app = (
@@ -103,6 +160,7 @@ def main():
 
     app.add_handler(CommandHandler("start", start))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, manejar_mensaje))
+    app.add_handler(MessageHandler(filters.VOICE, manejar_voz))
 
     # Recordatorio periódico + un "resumen" cada mañana a las 8:00
     job = app.job_queue
@@ -111,7 +169,7 @@ def main():
         interval=config.REMINDER_INTERVAL_MINUTES * 60,
         first=30,
     )
-    job.run_daily(recordatorio_diario, time=dt.time(hour=8, minute=0, tzinfo=TZ))
+    job.run_daily(brief_matutino, time=dt.time(hour=8, minute=0, tzinfo=TZ))
 
     log.info("Asistente en marcha. Escríbele por Telegram.")
     app.run_polling(allowed_updates=Update.ALL_TYPES, bootstrap_retries=-1)
