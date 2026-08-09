@@ -89,7 +89,17 @@ async def recordatorio_diario(context: ContextTypes.DEFAULT_TYPE):
 
 def main():
     config.check()
-    app = Application.builder().token(config.TELEGRAM_BOT_TOKEN).build()
+    app = (
+        Application.builder()
+        .token(config.TELEGRAM_BOT_TOKEN)
+        .connect_timeout(30)
+        .read_timeout(30)
+        .write_timeout(30)
+        .pool_timeout(30)
+        .get_updates_connect_timeout(30)
+        .get_updates_read_timeout(30)
+        .build()
+    )
 
     app.add_handler(CommandHandler("start", start))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, manejar_mensaje))
@@ -104,7 +114,7 @@ def main():
     job.run_daily(recordatorio_diario, time=dt.time(hour=8, minute=0, tzinfo=TZ))
 
     log.info("Asistente en marcha. Escríbele por Telegram.")
-    app.run_polling(allowed_updates=Update.ALL_TYPES)
+    app.run_polling(allowed_updates=Update.ALL_TYPES, bootstrap_retries=-1)
 
 
 if __name__ == "__main__":

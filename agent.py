@@ -72,7 +72,26 @@ HERRAMIENTAS = [
         "type": "function",
         "function": {
             "name": "listar_eventos",
-            "description": "Lista los eventos próximos de Google Calendar.",
+            "description": "Lista los eventos próximos de Google Calendar (para consultarlos/mostrarlos).",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "dias": {
+                        "type": "string",
+                        "description": "Cuántos días mirar hacia adelante como número (1 = hoy)",
+                    }
+                },
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "buscar_eventos",
+            "description": (
+                "Lista los eventos incluyendo su identificador (id). Úsala SIEMPRE "
+                "antes de editar, mover o borrar un evento, para obtener el id correcto."
+            ),
             "parameters": {
                 "type": "object",
                 "properties": {
@@ -88,7 +107,7 @@ HERRAMIENTAS = [
         "type": "function",
         "function": {
             "name": "crear_evento",
-            "description": "Crea un evento en Google Calendar.",
+            "description": "Crea un evento o reunión en Google Calendar. Puede incluir enlace de Google Meet e invitados.",
             "parameters": {
                 "type": "object",
                 "properties": {
@@ -101,8 +120,57 @@ HERRAMIENTAS = [
                         "type": "string",
                         "description": "Duración en minutos como número (por defecto 60)",
                     },
+                    "invitados": {
+                        "type": "string",
+                        "description": "Correos de los invitados separados por coma (opcional)",
+                    },
+                    "descripcion": {
+                        "type": "string",
+                        "description": "Agenda o descripción de la reunión (opcional)",
+                    },
+                    "con_meet": {
+                        "type": "string",
+                        "description": "'true' para añadir enlace de Google Meet",
+                    },
                 },
                 "required": ["titulo", "inicio"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "editar_evento",
+            "description": "Edita o mueve un evento existente. Necesita el id (obtenido con buscar_eventos).",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "event_id": {"type": "string", "description": "id del evento"},
+                    "nuevo_titulo": {"type": "string", "description": "Nuevo nombre (opcional)"},
+                    "nuevo_inicio": {
+                        "type": "string",
+                        "description": "Nueva fecha/hora AAAA-MM-DDTHH:MM (opcional, para mover)",
+                    },
+                    "nueva_duracion_min": {
+                        "type": "string",
+                        "description": "Nueva duración en minutos como número (opcional)",
+                    },
+                },
+                "required": ["event_id"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "borrar_evento",
+            "description": "Borra un evento. Necesita el id (obtenido con buscar_eventos).",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "event_id": {"type": "string", "description": "id del evento a borrar"}
+                },
+                "required": ["event_id"],
             },
         },
     },
@@ -114,7 +182,10 @@ FUNCIONES = {
     "listar_tareas": notion_tools.listar_tareas,
     "completar_tarea": notion_tools.completar_tarea,
     "listar_eventos": calendar_tools.listar_eventos,
+    "buscar_eventos": calendar_tools.buscar_eventos,
     "crear_evento": calendar_tools.crear_evento,
+    "editar_evento": calendar_tools.editar_evento,
+    "borrar_evento": calendar_tools.borrar_evento,
 }
 
 
@@ -128,7 +199,17 @@ def _system_prompt() -> str:
         "Responde SIEMPRE en español, breve y claro. Usa las herramientas cuando "
         "haga falta en vez de inventar datos. Si el usuario da una fecha relativa "
         "('mañana', 'el viernes'), conviértela tú a AAAA-MM-DD antes de llamar la herramienta. "
-        "Confirma lo que hiciste de forma concisa."
+        "Confirma lo que hiciste de forma concisa.\n"
+        "Para EDITAR, MOVER o BORRAR un evento: primero llama a 'buscar_eventos', "
+        "muéstrale al usuario una lista NUMERADA (1, 2, 3...) con la hora y el nombre "
+        "de cada evento, y NUNCA le muestres los identificadores técnicos (id=...). "
+        "Pídele el número, y luego usa el id correspondiente a ese número al llamar "
+        "'editar_evento' o 'borrar_evento'.\n"
+        "Para crear una REUNIÓN: si faltan datos, pregúntale al usuario lo que haga "
+        "falta de a poco (título, con quién y su correo, cuándo, duración, si quiere "
+        "enlace de Meet, y una breve agenda). No tienes acceso a sus contactos, así "
+        "que si solo te da un nombre, pídele el correo. Cuando tengas los datos, usa "
+        "'crear_evento' con con_meet='true' e 'invitados' cuando corresponda."
     )
 
 
