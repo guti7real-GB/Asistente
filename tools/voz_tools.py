@@ -1,15 +1,16 @@
 """Voz para Telegram:
   - transcribir(): pasa un audio a texto usando Whisper de Groq (gratis).
-  - sintetizar(): convierte texto a un audio de voz en español (gTTS + ffmpeg).
+  - sintetizar(): convierte texto a una voz distinguida en español (Edge TTS).
 
-Requiere: la librería gTTS (pip) y el programa ffmpeg (sistema).
+Requiere: la librería edge-tts (pip) y el programa ffmpeg (sistema).
 """
 import os
+import shutil
 import subprocess
+import sys
 import tempfile
 
 from groq import Groq
-from gtts import gTTS
 
 import config
 
@@ -23,23 +24,41 @@ def transcribir(ruta_audio: str) -> str:
         datos = f.read()
     resultado = _cliente.audio.transcriptions.create(
         model=STT_MODEL,
-        file=(os.path.basename(ruta_audio), datos),
+        file=("audio.ogg", datos),
         language="es",
     )
     return (resultado.text or "").strip()
 
 
+def _edge_cmd():
+    exe = shutil.which("edge-tts")
+    if exe:
+        return [exe]
+    return [sys.executable, "-m", "edge_tts"]
+
+
 def sintetizar(texto: str) -> str:
-    """Genera un audio de voz en español y devuelve la ruta a un .ogg (Opus),
-    listo para enviarse como nota de voz por Telegram."""
+    """Genera una nota de voz en español (voz de mayordomo) y devuelve la ruta
+    a un .ogg (Opus), listo para enviarse por Telegram."""
     tmp = tempfile.gettempdir()
     mp3 = os.path.join(tmp, "resp_voz.mp3")
     ogg = os.path.join(tmp, "resp_voz.ogg")
 
-    # acento chileno con tld="cl"
-    gTTS(text=texto, lang="es", tld="cl").save(mp3)
+    # Voz distinguida con Edge TTS (masculina madura, configurable en .env)
+    subprocess.run(
+        _edge_cmd()
+        + [
+            "--voice", config.TTS_VOICE,
+            "--rate", config.TTS_RATE,
+            "--pitch", config.TTS_PITCH,
+            "--text", texto,
+            "--write-media", mp3,
+        ],
+        check=True,
+        capture_output=True,
+    )
 
-    # convertir a OGG/Opus (formato de nota de voz de Telegram) con ffmpeg
+    # Convertir a OGG/Opus (formato de nota de voz de Telegram)
     subprocess.run(
         ["ffmpeg", "-y", "-i", mp3, "-c:a", "libopus", "-b:a", "32k", ogg],
         check=True,

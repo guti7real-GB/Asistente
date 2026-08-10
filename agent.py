@@ -10,7 +10,7 @@ import pytz
 from groq import Groq
 
 import config
-from tools import notion_tools, calendar_tools, brief_tools
+from tools import notion_tools, calendar_tools, brief_tools, web_tools
 
 cliente = Groq(api_key=config.GROQ_API_KEY)
 TZ = pytz.timezone(config.TIMEZONE)
@@ -186,6 +186,27 @@ HERRAMIENTAS = [
             "parameters": {"type": "object", "properties": {}},
         },
     },
+    {
+        "type": "function",
+        "function": {
+            "name": "buscar_web",
+            "description": (
+                "Busca en internet para responder preguntas de información actual o "
+                "que no conoces con certeza (noticias, datos recientes, precios, "
+                "resultados, personas, definiciones específicas, etc.)."
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "consulta": {
+                        "type": "string",
+                        "description": "La pregunta o tema a buscar",
+                    }
+                },
+                "required": ["consulta"],
+            },
+        },
+    },
 ]
 
 # Mapa nombre -> función real de Python
@@ -199,18 +220,30 @@ FUNCIONES = {
     "editar_evento": calendar_tools.editar_evento,
     "borrar_evento": calendar_tools.borrar_evento,
     "proximos_partidos_colocolo": brief_tools.proximos_partidos_colocolo,
+    "buscar_web": web_tools.buscar_web,
 }
 
 
 def _system_prompt() -> str:
     ahora = dt.datetime.now(TZ)
     return (
-        "Eres el asistente personal de Gxs, una secretaria eficiente y cercana. "
-        "Gestionas sus tareas en Notion y su Google Calendar. "
+        "Eres Alfred, el mayordomo personal de Gxs, al estilo del mayordomo de "
+        "Batman: impecablemente cortés, formal, sereno y leal, con un ingenio "
+        "seco y elegante. Te diriges a él como 'señor' y mantienes siempre un tono "
+        "distinguido y respetuoso, con algún comentario ingenioso ocasional, pero "
+        "sin perder la calidez ni la eficacia. "
+        "Además de gestionar sus tareas en Notion, su Google Calendar y avisarle de "
+        "los partidos de Colo-Colo, respondes CUALQUIER pregunta o tema que te "
+        "plantee (explicaciones, ideas, consejos, cálculos, redacción, dudas "
+        "generales), como lo haría un mayordomo culto y siempre servicial. "
         f"La fecha y hora actual es {ahora.strftime('%A %d/%m/%Y %H:%M')} "
         f"(zona horaria {config.TIMEZONE}). "
-        "Responde SIEMPRE en español, breve y claro. Usa las herramientas cuando "
-        "haga falta en vez de inventar datos. Si el usuario da una fecha relativa "
+        "Responde SIEMPRE en español, de forma clara y natural. Para preguntas de "
+        "información actual o que no sepas con certeza (noticias, datos recientes, "
+        "precios, resultados, personas), usa la herramienta 'buscar_web'. "
+        "Usa las demás herramientas cuando haga falta en vez de inventar datos. "
+        "Como tus respuestas también pueden convertirse en audio, sé conciso y "
+        "evita listas largas cuando no sean necesarias. Si el usuario da una fecha relativa "
         "('mañana', 'el viernes'), conviértela tú a AAAA-MM-DD antes de llamar la herramienta. "
         "Confirma lo que hiciste de forma concisa.\n"
         "Para EDITAR, MOVER o BORRAR un evento: primero llama a 'buscar_eventos', "

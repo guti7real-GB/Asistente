@@ -18,6 +18,16 @@ TIMEZONE = os.getenv("TIMEZONE", "Europe/Madrid")
 
 REMINDER_INTERVAL_MINUTES = int(os.getenv("REMINDER_INTERVAL_MINUTES", "15"))
 
+# Clave de TheSportsDB para el fútbol ("3" es la de prueba, gratis)
+THESPORTSDB_KEY = os.getenv("THESPORTSDB_KEY", "3")
+
+# Voz del asistente (Edge TTS). Voces masculinas maduras:
+#   es-ES-AlvaroNeural  (España, distinguido, tipo mayordomo)
+#   es-CL-LorenzoNeural (Chile)   es-MX-JorgeNeural (México)
+TTS_VOICE = os.getenv("TTS_VOICE", "es-ES-AlvaroNeural")
+TTS_RATE = os.getenv("TTS_RATE", "-5%")     # más lento = más pausado
+TTS_PITCH = os.getenv("TTS_PITCH", "-8Hz")  # más grave = más solemne
+
 
 def check():
     """Avisa si falta alguna clave importante."""
