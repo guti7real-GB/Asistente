@@ -7,3 +7,5 @@ google-auth-oauthlib>=1.2.0
 python-dotenv>=1.0.1
 pytz>=2024.1
 edge-tts>=6.1.9
+fastapi>=0.110.0
+uvicorn>=0.29.0

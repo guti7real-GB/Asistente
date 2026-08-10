@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+<title>Alfred</title>
+<style>
+  :root { --oro:#c9a227; --fondo:#0a0c10; --panel:#12161c; }
+  * { box-sizing:border-box; }
+  body { margin:0; background:var(--fondo); color:#e8eaed;
+         font-family:-apple-system,Segoe UI,Roboto,sans-serif;
+         min-height:100vh; display:flex; flex-direction:column; }
+  header { padding:18px; text-align:center; border-bottom:1px solid #1c2230; }
+  header h1 { margin:0; font-size:22px; letter-spacing:3px; color:var(--oro); font-weight:500; }
+  header .sub { font-size:12px; color:#7b8494; letter-spacing:1px; }
+  main { flex:1; padding:18px; display:flex; flex-direction:column; gap:14px; }
+  .estado { font-size:13px; color:#7b8494; text-align:center; min-height:18px; }
+  .burbuja { background:var(--panel); border:1px solid #1c2230; border-radius:14px;
+             padding:14px 16px; font-size:16px; line-height:1.5; }
+  .burbuja .rot { font-size:11px; color:#7b8494; letter-spacing:1px; text-transform:uppercase; margin-bottom:6px; }
+  #pregunta .rot { color:#5b93d6; }
+  #respuesta .rot { color:var(--oro); }
+  #respuesta { min-height:80px; }
+  .controles { display:flex; gap:10px; padding:16px 18px 28px; }
+  button { flex:1; padding:16px; border-radius:12px; border:1px solid #2a3242;
+           background:#161b23; color:#e8eaed; font-size:15px; }
+  #escuchar.on { background:var(--oro); color:#141414; border-color:var(--oro); }
+  .punto { display:inline-block; width:8px; height:8px; border-radius:50%; background:#3a4252; margin-right:6px; }
+  .punto.activo { background:#2ec26b; box-shadow:0 0 8px #2ec26b; }
+</style>
+</head>
+<body>
+  <header>
+    <h1>ALFRED</h1>
+    <div class="sub">a su servicio, señor</div>
+  </header>
+  <main>
+    <div class="estado"><span class="punto" id="punto"></span><span id="estado">Toca “Activar” para comenzar</span></div>
+    <div class="burbuja" id="pregunta"><div class="rot">Usted dijo</div><div id="pregunta-txt">—</div></div>
+    <div class="burbuja" id="respuesta"><div class="rot">Alfred</div><div id="respuesta-txt">—</div></div>
+  </main>
+  <div class="controles">
+    <button id="escuchar">Activar “Oye Alfred”</button>
+    <button id="hablar">Preguntar ahora</button>
+  </div>
+
+<script>
+const $ = id => document.getElementById(id);
+const estado = t => $("estado").textContent = t;
+const punto = on => $("punto").classList.toggle("activo", on);
+
+const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+let rec = null, escuchandoContinuo = false, procesando = false, hablando = false;
+let esperandoPregunta = false;
+
+function hablar(texto){
+  return new Promise(res => {
+    try{
+      window.speechSynthesis.cancel();
+      const u = new SpeechSynthesisUtterance(texto);
+      u.lang = "es-ES"; u.rate = 0.96; u.pitch = 0.9;
+      const voces = window.speechSynthesis.getVoices();
+      const v = voces.find(x => /es/i.test(x.lang) && /male|hombre|jorge|alvaro|diego|carlos/i.test(x.name))
+             || voces.find(x => /es/i.test(x.lang));
+      if (v) u.voice = v;
+      hablando = true; punto(false); estado("Alfred está hablando…");
+      u.onend = () => { hablando = false; res(); };
+      u.onerror = () => { hablando = false; res(); };
+      window.speechSynthesis.speak(u);
+    }catch(e){ hablando = false; res(); }
+  });
+}
+
+async function preguntarAlServidor(texto){
+  procesando = true; estado("Consultando…"); $("respuesta-txt").textContent = "…";
+  try{
+    const r = await fetch("/preguntar", {
+      method:"POST", headers:{"Content-Type":"application/json"},
+      body: JSON.stringify({texto})
+    });
+    const d = await r.json();
+    const resp = d.respuesta || "Sin respuesta.";
+    $("respuesta-txt").textContent = resp;
+    await hablar(resp);
+  }catch(e){
+    $("respuesta-txt").textContent = "No pude contactar al servidor: " + e;
+  }finally{
+    procesando = false;
+    if (escuchandoContinuo) iniciarReconocimiento();
+    else estado("Listo");
+  }
+}
+
+function manejarTexto(textoCrudo){
+  const texto = (textoCrudo || "").trim();
+  if (!texto) return;
+  const bajo = texto.toLowerCase();
+
+  if (esperandoPregunta){
+    esperandoPregunta = false;
+    $("pregunta-txt").textContent = texto;
+    preguntarAlServidor(texto);
+    return;
+  }
+  const i = bajo.lastIndexOf("alfred");
+  if (i === -1) return; // no dijo la palabra clave
+  let pregunta = texto.slice(i + 6).replace(/^[\s,.:;¿?!¡-]+/, "").trim();
+  if (pregunta.length >= 2){
+    $("pregunta-txt").textContent = pregunta;
+    preguntarAlServidor(pregunta);
+  }else{
+    esperandoPregunta = true;
+    estado("Dígame, señor…");
+    hablar("Dígame, señor.");
+  }
+}
+
+function iniciarReconocimiento(){
+  if (!SR){ estado("Tu navegador no soporta reconocimiento de voz (usa Chrome)."); return; }
+  if (procesando || hablando) return;
+  try{
+    rec = new SR();
+    rec.lang = "es-ES"; rec.continuous = false; rec.interimResults = false;
+    rec.onstart = () => { punto(true); estado(esperandoPregunta ? "Dígame, señor…" : "Escuchando “Oye Alfred”…"); };
+    rec.onresult = e => {
+      const t = e.results[e.results.length-1][0].transcript;
+      manejarTexto(t);
+    };
+    rec.onerror = () => {};
+    rec.onend = () => {
+      punto(false);
+      if (escuchandoContinuo && !procesando && !hablando) setTimeout(iniciarReconocimiento, 400);
+    };
+    rec.start();
+  }catch(e){ setTimeout(iniciarReconocimiento, 800); }
+}
+
+$("escuchar").addEventListener("click", () => {
+  window.speechSynthesis && window.speechSynthesis.getVoices(); // desbloquea audio
+  escuchandoContinuo = !escuchandoContinuo;
+  $("escuchar").classList.toggle("on", escuchandoContinuo);
+  $("escuchar").textContent = escuchandoContinuo ? "Escuchando… (tocar para pausar)" : "Activar “Oye Alfred”";
+  if (escuchandoContinuo) iniciarReconocimiento();
+  else { estado("Pausado"); punto(false); try{ rec && rec.stop(); }catch(e){} }
+});
+
+$("hablar").addEventListener("click", () => {
+  if (!SR){ estado("Usa Chrome para el reconocimiento de voz."); return; }
+  const antes = escuchandoContinuo; escuchandoContinuo = false;
+  try{ rec && rec.stop(); }catch(e){}
+  const uno = new SR();
+  uno.lang = "es-ES"; uno.interimResults = false;
+  estado("Habla ahora…"); punto(true);
+  uno.onresult = e => {
+    const t = e.results[0][0].transcript;
+    $("pregunta-txt").textContent = t;
+    preguntarAlServidor(t).then(() => { escuchandoContinuo = antes; });
+  };
+  uno.onend = () => punto(false);
+  uno.onerror = () => { punto(false); estado("No te escuché, intenta de nuevo."); };
+  uno.start();
+});
+</script>
+</body>
+</html>
