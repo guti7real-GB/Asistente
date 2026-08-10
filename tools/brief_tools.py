@@ -12,7 +12,7 @@ import config
 
 TZ = pytz.timezone(config.TIMEZONE)
 WEB_MODEL = "groq/compound"  # modelo de Groq con búsqueda web
-_cliente = Groq(api_key=config.GROQ_API_KEY)
+_cliente = Groq(api_key=config.GROQ_API_KEY, timeout=25, max_retries=1)
 
 
 def proximos_partidos_colocolo() -> str:

@@ -9,7 +9,7 @@ from groq import Groq
 import config
 
 WEB_MODEL = "groq/compound"
-_cliente = Groq(api_key=config.GROQ_API_KEY)
+_cliente = Groq(api_key=config.GROQ_API_KEY, timeout=25, max_retries=1)
 
 
 def buscar_web(consulta: str) -> str:

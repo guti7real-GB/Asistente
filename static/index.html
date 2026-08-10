@@ -89,9 +89,11 @@ function hablar(texto){
              || vs.find(x => /es/i.test(x.lang));
       if (v) u.voice = v;
       hablando = true; oyendo(false); estado("Alfred responde…");
-      u.onend = () => { hablando = false; res(); };
-      u.onerror = () => { hablando = false; res(); };
+      let listo = false;
+      const fin = () => { if (!listo){ listo = true; hablando = false; res(); } };
+      u.onend = fin; u.onerror = fin;
       window.speechSynthesis.speak(u);
+      setTimeout(fin, Math.min(22000, 3000 + texto.length * 90));
     }catch(e){ hablando = false; res(); }
   });
 }
@@ -103,10 +105,13 @@ async function consultar(texto){
   $("respuesta-txt").textContent = "";
   estado("Alfred está pensando…"); cargando(true);
   try{
+    const ctrl = new AbortController();
+    const alarma = setTimeout(() => ctrl.abort(), 45000);
     const r = await fetch("/preguntar", {
       method:"POST", headers:{"Content-Type":"application/json"},
-      body: JSON.stringify({texto})
+      body: JSON.stringify({texto}), signal: ctrl.signal
     });
+    clearTimeout(alarma);
     const d = await r.json();
     const t = d.respuesta || "Sin respuesta.";
     cargando(false);
@@ -114,7 +119,11 @@ async function consultar(texto){
     await hablar(t);
   }catch(e){
     cargando(false);
-    $("respuesta-txt").textContent = "No pude contactar al servidor: " + e;
+    const msg = (e && e.name === "AbortError")
+      ? "Tardó demasiado, señor. Intentemos de nuevo."
+      : "No pude contactar al servidor.";
+    $("respuesta-txt").textContent = msg;
+    estado(msg);
   }finally{
     procesando = false; cargando(false);
     if (activo) arrancar();

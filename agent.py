@@ -12,7 +12,7 @@ from groq import Groq
 import config
 from tools import notion_tools, calendar_tools, brief_tools, web_tools
 
-cliente = Groq(api_key=config.GROQ_API_KEY)
+cliente = Groq(api_key=config.GROQ_API_KEY, timeout=30, max_retries=1)
 TZ = pytz.timezone(config.TIMEZONE)
 
 # ---- Definición de las herramientas (formato de function calling) ----
@@ -238,12 +238,15 @@ def _system_prompt() -> str:
         "generales), como lo haría un mayordomo culto y siempre servicial. "
         f"La fecha y hora actual es {ahora.strftime('%A %d/%m/%Y %H:%M')} "
         f"(zona horaria {config.TIMEZONE}). "
-        "Responde SIEMPRE en español, de forma clara y natural. Para preguntas de "
-        "información actual o que no sepas con certeza (noticias, datos recientes, "
-        "precios, resultados, personas), usa la herramienta 'buscar_web'. "
-        "Usa las demás herramientas cuando haga falta en vez de inventar datos. "
-        "Como tus respuestas también pueden convertirse en audio, sé conciso y "
-        "evita listas largas cuando no sean necesarias. Si el usuario da una fecha relativa "
+        "Responde SIEMPRE en español, y sé MUY conciso: 2 a 4 frases, porque tus "
+        "respuestas se leen en voz alta. Evita listas largas. "
+        "IMPORTANTE para la rapidez: responde directamente con tu propio conocimiento "
+        "siempre que puedas. Usa 'buscar_web' SOLO para información que cambia con el "
+        "tiempo (noticias de hoy, precios actuales, resultados deportivos recientes, "
+        "eventos de actualidad). NUNCA uses 'buscar_web' para explicaciones, "
+        "definiciones, ideas o conocimiento general: eso contéstalo tú directo, es más rápido. "
+        "Usa las demás herramientas (Notion, calendario) solo cuando el usuario lo pida. "
+        "Si el usuario da una fecha relativa "
         "('mañana', 'el viernes'), conviértela tú a AAAA-MM-DD antes de llamar la herramienta. "
         "Confirma lo que hiciste de forma concisa.\n"
         "Para EDITAR, MOVER o BORRAR un evento: primero llama a 'buscar_eventos', "
@@ -268,7 +271,7 @@ def responder(mensaje_usuario: str, historial: list) -> str:
         mensajes = [{"role": "system", "content": _system_prompt()}] + historial
         respuesta = cliente.chat.completions.create(
             model=config.GROQ_MODEL,
-            max_tokens=1024,
+            max_tokens=500,
             tools=HERRAMIENTAS,
             tool_choice="auto",
             messages=mensajes,
