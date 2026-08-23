@@ -10,7 +10,7 @@ import pytz
 from groq import Groq
 
 import config
-from tools import notion_tools, calendar_tools, brief_tools, web_tools
+from tools import notion_tools, calendar_tools, brief_tools, web_tools, red_tools
 
 cliente = Groq(api_key=config.GROQ_API_KEY, timeout=30, max_retries=1)
 TZ = pytz.timezone(config.TIMEZONE)
@@ -189,6 +189,18 @@ HERRAMIENTAS = [
     {
         "type": "function",
         "function": {
+            "name": "escanear_red",
+            "description": (
+                "Escanea la red WiFi local y lista los dispositivos conectados "
+                "(IP, nombre y MAC). Úsala cuando el usuario pida ver los "
+                "dispositivos de su red."
+            ),
+            "parameters": {"type": "object", "properties": {}},
+        },
+    },
+    {
+        "type": "function",
+        "function": {
             "name": "buscar_web",
             "description": (
                 "Busca en internet para responder preguntas de información actual o "
@@ -221,6 +233,7 @@ FUNCIONES = {
     "borrar_evento": calendar_tools.borrar_evento,
     "proximos_partidos_colocolo": brief_tools.proximos_partidos_colocolo,
     "buscar_web": web_tools.buscar_web,
+    "escanear_red": red_tools.escanear_red,
 }
 
 
@@ -246,6 +259,9 @@ def _system_prompt() -> str:
         "eventos de actualidad). NUNCA uses 'buscar_web' para explicaciones, "
         "definiciones, ideas o conocimiento general: eso contéstalo tú directo, es más rápido. "
         "Usa las demás herramientas (Notion, calendario) solo cuando el usuario lo pida. "
+        "Cuando el usuario pida ver los dispositivos de su red, usa 'escanear_red' y "
+        "muéstrale la lista TAL CUAL la devuelve la herramienta (enumerada, sin quitar "
+        "ni reordenar dispositivos). "
         "Si el usuario da una fecha relativa "
         "('mañana', 'el viernes'), conviértela tú a AAAA-MM-DD antes de llamar la herramienta. "
         "Confirma lo que hiciste de forma concisa.\n"
