@@ -17,6 +17,8 @@ from tools import (
     web_tools,
     red_tools,
     spotify_tools,
+    memoria_tools,
+    ordenes_tools,
 )
 
 cliente = Groq(api_key=config.GROQ_API_KEY, timeout=30, max_retries=1)
@@ -196,6 +198,52 @@ HERRAMIENTAS = [
     {
         "type": "function",
         "function": {
+            "name": "guardar_memoria",
+            "description": (
+                "Guarda en la memoria una preferencia, dato o cosa importante que el "
+                "usuario comparta y convenga recordar en el futuro."
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "nota": {"type": "string", "description": "Qué recordar, en una frase"}
+                },
+                "required": ["nota"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "programar_orden",
+            "description": (
+                "Guarda una orden para EJECUTARLA en el futuro a una fecha/hora dada "
+                "(recordatorios o acciones futuras)."
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "texto": {"type": "string", "description": "La instrucción a ejecutar"},
+                    "cuando": {
+                        "type": "string",
+                        "description": "Fecha y hora AAAA-MM-DDTHH:MM en que ejecutarla",
+                    },
+                },
+                "required": ["texto", "cuando"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "listar_ordenes",
+            "description": "Lista las órdenes programadas pendientes.",
+            "parameters": {"type": "object", "properties": {}},
+        },
+    },
+    {
+        "type": "function",
+        "function": {
             "name": "reproducir_spotify",
             "description": "Busca y reproduce una canción en Spotify. Úsala cuando el usuario pida poner música o una canción.",
             "parameters": {
@@ -282,6 +330,9 @@ FUNCIONES = {
     "proximos_partidos_colocolo": brief_tools.proximos_partidos_colocolo,
     "buscar_web": web_tools.buscar_web,
     "escanear_red": red_tools.escanear_red,
+    "guardar_memoria": memoria_tools.guardar_memoria,
+    "programar_orden": ordenes_tools.programar_orden,
+    "listar_ordenes": ordenes_tools.listar_ordenes,
     "reproducir_spotify": spotify_tools.reproducir,
     "pausar_spotify": spotify_tools.pausar,
     "siguiente_cancion": spotify_tools.siguiente,
@@ -291,7 +342,7 @@ FUNCIONES = {
 
 def _system_prompt() -> str:
     ahora = dt.datetime.now(TZ)
-    return (
+    base = (
         "Eres Alfred, el mayordomo personal de Gxs, al estilo del mayordomo de "
         "Batman: impecablemente cortés, formal, sereno y leal, con un ingenio "
         "seco y elegante. Te diriges a él como 'señor' y mantienes siempre un tono "
@@ -329,8 +380,24 @@ def _system_prompt() -> str:
         "falta de a poco (título, con quién y su correo, cuándo, duración, si quiere "
         "enlace de Meet, y una breve agenda). No tienes acceso a sus contactos, así "
         "que si solo te da un nombre, pídele el correo. Cuando tengas los datos, usa "
-        "'crear_evento' con con_meet='true' e 'invitados' cuando corresponda."
+        "'crear_evento' con con_meet='true' e 'invitados' cuando corresponda.\n"
+        "PROFESIONALISMO: cuando venga al caso, aconseja a Gxs con tacto para actuar "
+        "de forma más profesional (comunicación, orden, puntualidad, prioridades), "
+        "sin sermonear ni alargarte.\n"
+        "FÚTBOL — eres HINCHA de Colo-Colo: si te preguntan quién ganará entre "
+        "Colo-Colo y cualquier otro equipo (o 'X vs Y' donde juegue Colo-Colo), "
+        "responde SIEMPRE que gana Colo-Colo, con un comentario orgulloso tipo "
+        "'obvio, señor, por ser el equipo más ganador del país, y vamos en campaña "
+        "por la estrella 35'. (Es solo por afición; si preguntan por un partido real "
+        "ya jugado, di el resultado verdadero.)\n"
+        "MEMORIA: cuando el usuario comparta una preferencia, dato personal o algo "
+        "que convenga recordar, guárdalo con 'guardar_memoria'. Para que hagas algo en "
+        "el futuro, usa 'programar_orden'."
     )
+    memoria = memoria_tools.leer_memoria()
+    if memoria:
+        base += "\n\nEsto es lo que recuerdas de Gxs:\n" + memoria
+    return base
 
 
 def responder(mensaje_usuario: str, historial: list) -> str:

@@ -20,7 +20,7 @@ import tempfile
 
 import config
 import agent
-from tools import calendar_tools, brief_tools, voz_tools
+from tools import calendar_tools, brief_tools, voz_tools, notion_tools, ordenes_tools
 
 logging.basicConfig(
     format="%(asctime)s - %(levelname)s - %(message)s", level=logging.INFO
@@ -144,6 +144,36 @@ async def manejar_voz(update: Update, context: ContextTypes.DEFAULT_TYPE):
         log.warning("No pude generar la voz de respuesta: %s", e)
 
 
+async def objetivos_dia(context: ContextTypes.DEFAULT_TYPE):
+    """Cada mañana a las 8:30 envía los objetivos del día (tareas pendientes)."""
+    if not config.TELEGRAM_ALLOWED_CHAT_ID:
+        return
+    try:
+        tareas = notion_tools.listar_tareas(True)
+    except Exception as e:
+        tareas = f"(no pude leer sus objetivos: {e})"
+    await context.bot.send_message(
+        chat_id=config.TELEGRAM_ALLOWED_CHAT_ID,
+        text="📋 Buenos días, señor. Sus objetivos de hoy:\n" + tareas,
+    )
+
+
+async def revisar_ordenes(context: ContextTypes.DEFAULT_TYPE):
+    """Cada minuto revisa si hay órdenes programadas que ya deben ejecutarse."""
+    if not config.TELEGRAM_ALLOWED_CHAT_ID:
+        return
+    ahora = dt.datetime.now(TZ).strftime("%Y-%m-%dT%H:%M")
+    for o in ordenes_tools.ordenes_vencidas(ahora):
+        try:
+            resultado = agent.responder(o["texto"], [])
+        except Exception as e:
+            resultado = f"(no pude ejecutarla: {e})"
+        await context.bot.send_message(
+            chat_id=config.TELEGRAM_ALLOWED_CHAT_ID,
+            text=f"⏰ Su orden, señor — «{o['texto']}»:\n{resultado}",
+        )
+
+
 def main():
     config.check()
     app = (
@@ -170,6 +200,8 @@ def main():
         first=30,
     )
     job.run_daily(brief_matutino, time=dt.time(hour=8, minute=0, tzinfo=TZ))
+    job.run_daily(objetivos_dia, time=dt.time(hour=8, minute=30, tzinfo=TZ))
+    job.run_repeating(revisar_ordenes, interval=60, first=20)
 
     log.info("Asistente en marcha. Escríbele por Telegram.")
     app.run_polling(allowed_updates=Update.ALL_TYPES, bootstrap_retries=-1)

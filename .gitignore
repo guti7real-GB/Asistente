@@ -4,3 +4,5 @@ token.json
 .venv/
 __pycache__/
 .spotify_cache
+memoria.json
+ordenes.json
