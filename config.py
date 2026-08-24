@@ -28,6 +28,9 @@ TTS_VOICE = os.getenv("TTS_VOICE", "es-ES-AlvaroNeural")
 TTS_RATE = os.getenv("TTS_RATE", "-5%")     # más lento = más pausado
 TTS_PITCH = os.getenv("TTS_PITCH", "-8Hz")  # más grave = más solemne
 
+# Clave de acceso a la app web (obligatoria para proteger el servidor)
+WEB_PASSWORD = os.getenv("WEB_PASSWORD")
+
 # ---- Spotify (requiere Premium) ----
 SPOTIFY_CLIENT_ID = os.getenv("SPOTIFY_CLIENT_ID")
 SPOTIFY_CLIENT_SECRET = os.getenv("SPOTIFY_CLIENT_SECRET")
