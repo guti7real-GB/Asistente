@@ -9,3 +9,4 @@ pytz>=2024.1
 edge-tts>=6.1.9
 fastapi>=0.110.0
 uvicorn>=0.29.0
+spotipy>=2.23.0

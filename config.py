@@ -28,6 +28,11 @@ TTS_VOICE = os.getenv("TTS_VOICE", "es-ES-AlvaroNeural")
 TTS_RATE = os.getenv("TTS_RATE", "-5%")     # más lento = más pausado
 TTS_PITCH = os.getenv("TTS_PITCH", "-8Hz")  # más grave = más solemne
 
+# ---- Spotify (requiere Premium) ----
+SPOTIFY_CLIENT_ID = os.getenv("SPOTIFY_CLIENT_ID")
+SPOTIFY_CLIENT_SECRET = os.getenv("SPOTIFY_CLIENT_SECRET")
+SPOTIFY_REDIRECT_URI = os.getenv("SPOTIFY_REDIRECT_URI", "http://127.0.0.1:8888/callback")
+
 
 def check():
     """Avisa si falta alguna clave importante."""

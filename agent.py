@@ -10,7 +10,14 @@ import pytz
 from groq import Groq
 
 import config
-from tools import notion_tools, calendar_tools, brief_tools, web_tools, red_tools
+from tools import (
+    notion_tools,
+    calendar_tools,
+    brief_tools,
+    web_tools,
+    red_tools,
+    spotify_tools,
+)
 
 cliente = Groq(api_key=config.GROQ_API_KEY, timeout=30, max_retries=1)
 TZ = pytz.timezone(config.TIMEZONE)
@@ -189,6 +196,47 @@ HERRAMIENTAS = [
     {
         "type": "function",
         "function": {
+            "name": "reproducir_spotify",
+            "description": "Busca y reproduce una canción en Spotify. Úsala cuando el usuario pida poner música o una canción.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "cancion": {
+                        "type": "string",
+                        "description": "Nombre de la canción y, si lo dice, el artista",
+                    }
+                },
+                "required": ["cancion"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "pausar_spotify",
+            "description": "Pausa la música de Spotify.",
+            "parameters": {"type": "object", "properties": {}},
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "siguiente_cancion",
+            "description": "Salta a la siguiente canción en Spotify.",
+            "parameters": {"type": "object", "properties": {}},
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "que_suena",
+            "description": "Dice qué canción está sonando ahora en Spotify.",
+            "parameters": {"type": "object", "properties": {}},
+        },
+    },
+    {
+        "type": "function",
+        "function": {
             "name": "escanear_red",
             "description": (
                 "Escanea la red WiFi local y lista los dispositivos conectados "
@@ -234,6 +282,10 @@ FUNCIONES = {
     "proximos_partidos_colocolo": brief_tools.proximos_partidos_colocolo,
     "buscar_web": web_tools.buscar_web,
     "escanear_red": red_tools.escanear_red,
+    "reproducir_spotify": spotify_tools.reproducir,
+    "pausar_spotify": spotify_tools.pausar,
+    "siguiente_cancion": spotify_tools.siguiente,
+    "que_suena": spotify_tools.que_suena,
 }
 
 
@@ -262,6 +314,9 @@ def _system_prompt() -> str:
         "Cuando el usuario pida ver los dispositivos de su red, usa 'escanear_red' y "
         "muéstrale la lista TAL CUAL la devuelve la herramienta (enumerada, sin quitar "
         "ni reordenar dispositivos). "
+        "Cuando pida poner música o una canción, usa 'reproducir_spotify' con el nombre "
+        "de la canción (incluye el artista si lo menciona). Para controlar la música usa "
+        "'pausar_spotify', 'siguiente_cancion' o 'que_suena' según corresponda. "
         "Si el usuario da una fecha relativa "
         "('mañana', 'el viernes'), conviértela tú a AAAA-MM-DD antes de llamar la herramienta. "
         "Confirma lo que hiciste de forma concisa.\n"
