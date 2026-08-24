@@ -97,6 +97,11 @@
       </div>
     </main>
 
+    <div style="display:flex; gap:8px; padding:0 16px 10px;">
+      <input id="texto" type="text" placeholder="Escribe a Alfred…" autocomplete="off" style="flex:1; text-align:left; font-family:Consolas,monospace; letter-spacing:0;">
+      <button id="enviar" style="flex:none; width:60px; padding:0;"><i class="ti ti-send" style="font-size:20px;"></i></button>
+    </div>
+
     <div class="controles">
       <button id="escuchar">ACTIVAR “OYE ALFRED”</button>
       <button id="hablar">PREGUNTAR</button>
@@ -147,7 +152,7 @@ function hablar(texto){
   });
 }
 
-async function consultar(texto){
+async function consultar(texto, conVoz=true){
   procesando=true; esperando=false;
   $("pregunta").classList.remove("interim"); $("pregunta").textContent=texto;
   $("respuesta").textContent="";
@@ -158,7 +163,7 @@ async function consultar(texto){
     clearTimeout(al);
     if (r.status===401){ cargando(false); $("respuesta").textContent="Sesión expirada. Recarga e ingresa la clave."; return; }
     const d=await r.json(); const t=d.respuesta||"Sin respuesta.";
-    cargando(false); $("respuesta").textContent=t; await hablar(t);
+    cargando(false); $("respuesta").textContent=t; if(conVoz) await hablar(t);
   }catch(e){
     cargando(false);
     const m=(e&&e.name==="AbortError")?"Tardó demasiado, señor.":"No pude contactar al servidor.";
@@ -192,6 +197,10 @@ function arrancar(){
     rec.start();
   }catch(e){ setTimeout(arrancar,800); }
 }
+
+function enviarTexto(){ const t=$("texto").value.trim(); if(!t) return; $("texto").value=""; consultar(t, false); }
+$("enviar").addEventListener("click", enviarTexto);
+$("texto").addEventListener("keydown", e=>{ if(e.key==="Enter") enviarTexto(); });
 
 $("escuchar").addEventListener("click",()=>{
   speechSynthesis&&speechSynthesis.getVoices();
