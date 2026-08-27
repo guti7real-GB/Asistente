@@ -74,19 +74,25 @@ async def manejar_mensaje(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(respuesta)
 
 
+_YA_RECORDADOS = set()
+
+
 async def recordatorio_diario(context: ContextTypes.DEFAULT_TYPE):
-    """Se ejecuta periódicamente y avisa de eventos cercanos."""
+    """Avisa UNA sola vez de cada evento, ~30 min antes de que empiece."""
     if not config.TELEGRAM_ALLOWED_CHAT_ID:
         return
     try:
-        eventos = calendar_tools.listar_eventos(dias=1)
+        proximos = calendar_tools.eventos_por_empezar(30)
     except Exception as e:
         log.warning("No pude revisar el calendario: %s", e)
         return
-    if eventos and "No hay eventos" not in eventos:
+    for eid, titulo, cuando in proximos:
+        if eid in _YA_RECORDADOS:
+            continue
+        _YA_RECORDADOS.add(eid)
         await context.bot.send_message(
             chat_id=config.TELEGRAM_ALLOWED_CHAT_ID,
-            text="🔔 Recordatorio — próximas 24h:\n" + eventos,
+            text=f"🔔 En breve, señor: {cuando} — {titulo}",
         )
 
 
@@ -194,11 +200,7 @@ def main():
 
     # Recordatorio periódico + un "resumen" cada mañana a las 8:00
     job = app.job_queue
-    job.run_repeating(
-        recordatorio_diario,
-        interval=config.REMINDER_INTERVAL_MINUTES * 60,
-        first=30,
-    )
+    job.run_repeating(recordatorio_diario, interval=300, first=30)
     job.run_daily(brief_matutino, time=dt.time(hour=8, minute=0, tzinfo=TZ))
     job.run_daily(objetivos_dia, time=dt.time(hour=8, minute=30, tzinfo=TZ))
     job.run_repeating(revisar_ordenes, interval=60, first=20)

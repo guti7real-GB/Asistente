@@ -66,6 +66,37 @@ def _eventos_en_rango(dias):
     return resultado.get("items", [])
 
 
+def eventos_por_empezar(minutos=30):
+    """Devuelve [(id, titulo, hora_texto)] de los eventos CON HORA que empiezan
+    dentro de los próximos 'minutos' (para recordar una vez, poco antes)."""
+    service = _get_service()
+    ahora = dt.datetime.now(TZ)
+    fin = ahora + dt.timedelta(minutes=int(minutos))
+    res = (
+        service.events()
+        .list(
+            calendarId=config.GOOGLE_CALENDAR_ID,
+            timeMin=ahora.isoformat(),
+            timeMax=fin.isoformat(),
+            singleEvents=True,
+            orderBy="startTime",
+        )
+        .execute()
+    )
+    salida = []
+    for ev in res.get("items", []):
+        ini = ev["start"].get("dateTime")
+        if not ini:
+            continue  # ignora eventos de día completo
+        try:
+            ini_dt = dt.datetime.fromisoformat(ini).astimezone(TZ)
+        except Exception:
+            continue
+        if ahora <= ini_dt <= fin:
+            salida.append((ev["id"], ev.get("summary", "(sin título)"), _formatea(ini)))
+    return salida
+
+
 def listar_eventos(dias=1) -> str:
     """Lista los eventos próximos (texto limpio, para mostrar al usuario)."""
     eventos = _eventos_en_rango(dias)
