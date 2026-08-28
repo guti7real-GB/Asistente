@@ -20,6 +20,7 @@ from tools import (
     memoria_tools,
     ordenes_tools,
     info_tools,
+    gmail_tools,
 )
 
 cliente = Groq(api_key=config.GROQ_API_KEY, timeout=30, max_retries=1)
@@ -286,6 +287,41 @@ HERRAMIENTAS = [
     {
         "type": "function",
         "function": {
+            "name": "resumir_correos",
+            "description": "Resume los correos recibidos hoy (remitente, asunto y extracto).",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "cantidad": {
+                        "type": "string",
+                        "description": "Cuántos correos revisar como número (por defecto 8)",
+                    }
+                },
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "enviar_correo",
+            "description": (
+                "Envía un correo. Úsala SOLO después de mostrar el borrador y de que "
+                "el usuario confirme explícitamente que lo envíe."
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "destinatario": {"type": "string", "description": "Correo del destinatario"},
+                    "asunto": {"type": "string"},
+                    "cuerpo": {"type": "string"},
+                },
+                "required": ["destinatario", "asunto", "cuerpo"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
             "name": "clima",
             "description": "Clima de hoy en San Miguel y Las Condes (rango, promedio, sensación).",
             "parameters": {"type": "object", "properties": {}},
@@ -355,6 +391,8 @@ FUNCIONES = {
     "proximos_partidos_colocolo": brief_tools.proximos_partidos_colocolo,
     "buscar_web": web_tools.buscar_web,
     "escanear_red": red_tools.escanear_red,
+    "resumir_correos": gmail_tools.resumir_correos,
+    "enviar_correo": gmail_tools.enviar_correo,
     "clima": info_tools.clima,
     "dolar": info_tools.dolar,
     "noticias": info_tools.noticias,
@@ -420,7 +458,12 @@ def _system_prompt() -> str:
         "ya jugado, di el resultado verdadero.)\n"
         "MEMORIA: cuando el usuario comparta una preferencia, dato personal o algo "
         "que convenga recordar, guárdalo con 'guardar_memoria'. Para que hagas algo en "
-        "el futuro, usa 'programar_orden'."
+        "el futuro, usa 'programar_orden'.\n"
+        "CORREO: para revisar el correo usa 'resumir_correos'. Para escribir o responder "
+        "un correo, PRIMERO redacta el borrador (destinatario, asunto y cuerpo) y "
+        "muéstraselo al usuario para que lo revise. Llama a 'enviar_correo' ÚNICAMENTE "
+        "cuando el usuario confirme de forma explícita que lo envíe. Nunca envíes sin esa "
+        "confirmación."
     )
     memoria = memoria_tools.leer_memoria()
     if memoria:

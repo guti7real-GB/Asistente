@@ -25,26 +25,12 @@ _servicio = None
 
 
 def _get_service():
-    """Autentica (una vez) y devuelve el cliente de la API de Calendar."""
+    """Devuelve el cliente de la API de Calendar (usa el auth compartido)."""
     global _servicio
     if _servicio is not None:
         return _servicio
-
-    creds = None
-    if os.path.exists("token.json"):
-        creds = Credentials.from_authorized_user_file("token.json", SCOPES)
-    if not creds or not creds.valid:
-        if creds and creds.expired and creds.refresh_token:
-            creds.refresh(Request())
-        else:
-            flow = InstalledAppFlow.from_client_secrets_file(
-                "credentials.json", SCOPES
-            )
-            creds = flow.run_local_server(port=0)
-        with open("token.json", "w") as f:
-            f.write(creds.to_json())
-
-    _servicio = build("calendar", "v3", credentials=creds)
+    from tools import google_auth
+    _servicio = build("calendar", "v3", credentials=google_auth.get_credentials())
     return _servicio
 
 
