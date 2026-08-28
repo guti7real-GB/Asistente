@@ -19,6 +19,7 @@ from tools import (
     spotify_tools,
     memoria_tools,
     ordenes_tools,
+    info_tools,
 )
 
 cliente = Groq(api_key=config.GROQ_API_KEY, timeout=30, max_retries=1)
@@ -285,6 +286,30 @@ HERRAMIENTAS = [
     {
         "type": "function",
         "function": {
+            "name": "clima",
+            "description": "Clima de hoy en San Miguel y Las Condes (rango, promedio, sensación).",
+            "parameters": {"type": "object", "properties": {}},
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "dolar",
+            "description": "Valor actual del dólar en pesos chilenos.",
+            "parameters": {"type": "object", "properties": {}},
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "noticias",
+            "description": "Titulares recientes de IA/tecnología, Colo-Colo y economía.",
+            "parameters": {"type": "object", "properties": {}},
+        },
+    },
+    {
+        "type": "function",
+        "function": {
             "name": "escanear_red",
             "description": (
                 "Escanea la red WiFi local y lista los dispositivos conectados "
@@ -330,6 +355,9 @@ FUNCIONES = {
     "proximos_partidos_colocolo": brief_tools.proximos_partidos_colocolo,
     "buscar_web": web_tools.buscar_web,
     "escanear_red": red_tools.escanear_red,
+    "clima": info_tools.clima,
+    "dolar": info_tools.dolar,
+    "noticias": info_tools.noticias,
     "guardar_memoria": memoria_tools.guardar_memoria,
     "programar_orden": ordenes_tools.programar_orden,
     "listar_ordenes": ordenes_tools.listar_ordenes,

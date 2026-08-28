@@ -20,7 +20,14 @@ import tempfile
 
 import config
 import agent
-from tools import calendar_tools, brief_tools, voz_tools, notion_tools, ordenes_tools
+from tools import (
+    calendar_tools,
+    brief_tools,
+    voz_tools,
+    notion_tools,
+    ordenes_tools,
+    info_tools,
+)
 
 logging.basicConfig(
     format="%(asctime)s - %(levelname)s - %(message)s", level=logging.INFO
@@ -96,17 +103,27 @@ async def recordatorio_diario(context: ContextTypes.DEFAULT_TYPE):
         )
 
 
+def _seguro(fn, etiqueta):
+    try:
+        return fn()
+    except Exception as e:
+        return f"{etiqueta}: no disponible ({e})"
+
+
 async def brief_matutino(context: ContextTypes.DEFAULT_TYPE):
-    """Resumen de cada mañana: próximos partidos de Colo-Colo."""
+    """Resumen matutino (8:00): clima, dólar, Colo-Colo y noticias."""
     if not config.TELEGRAM_ALLOWED_CHAT_ID:
         return
-    try:
-        partidos = brief_tools.proximos_partidos_colocolo()
-    except Exception as e:
-        partidos = f"(no disponible: {e})"
-    texto = "☀️ Buenos días.\n\n⚽ Próximos partidos de Colo-Colo:\n" + partidos
+    partes = ["☀️ Buenos días, señor. Su resumen del día:"]
+    partes.append("\n🌡️ Clima:\n" + _seguro(info_tools.clima, "Clima"))
+    partes.append("\n💵 " + _seguro(info_tools.dolar, "Dólar"))
+    partes.append(
+        "\n⚽ Colo-Colo:\n"
+        + _seguro(brief_tools.proximos_partidos_colocolo, "Colo-Colo")
+    )
+    partes.append("\n📰 Noticias:\n" + _seguro(info_tools.noticias, "Noticias"))
     await context.bot.send_message(
-        chat_id=config.TELEGRAM_ALLOWED_CHAT_ID, text=texto
+        chat_id=config.TELEGRAM_ALLOWED_CHAT_ID, text="\n".join(partes)
     )
 
 
