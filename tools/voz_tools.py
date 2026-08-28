@@ -18,13 +18,15 @@ _cliente = Groq(api_key=config.GROQ_API_KEY)
 STT_MODEL = "whisper-large-v3"
 
 
-def transcribir(ruta_audio: str) -> str:
-    """Convierte un archivo de audio (voz de Telegram) a texto en español."""
+def transcribir(ruta_audio: str, nombre: str = "audio.ogg") -> str:
+    """Convierte un archivo de audio a texto en español.
+    'nombre' debe tener una extensión válida (ogg, mp3, m4a, wav, etc.).
+    """
     with open(ruta_audio, "rb") as f:
         datos = f.read()
     resultado = _cliente.audio.transcriptions.create(
         model=STT_MODEL,
-        file=("audio.ogg", datos),
+        file=(nombre, datos),
         language="es",
     )
     return (resultado.text or "").strip()

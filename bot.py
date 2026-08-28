@@ -134,6 +134,10 @@ async def manejar_documento(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
     chat_id = update.effective_chat.id
     doc = update.message.document
+    # Si el "documento" es en realidad un audio, transcríbelo en vez de resumirlo
+    if (doc.mime_type or "").startswith("audio/"):
+        await _transcribir_y_responder(update, context, doc, doc.file_name or "audio.mp3")
+        return
     await context.bot.send_chat_action(chat_id=chat_id, action="typing")
 
     ruta = os.path.join(tempfile.gettempdir(), f"doc_{chat_id}_{doc.file_name}")
@@ -169,6 +173,38 @@ async def manejar_documento(update: Update, context: ContextTypes.DEFAULT_TYPE):
     )
     historial.append({"role": "assistant", "content": pregunta})
     await update.message.reply_text(pregunta)
+
+
+async def _transcribir_y_responder(update, context, media, nombre):
+    """Descarga un audio, lo transcribe y devuelve el texto para copiar."""
+    chat_id = update.effective_chat.id
+    await context.bot.send_chat_action(chat_id=chat_id, action="typing")
+    ext = os.path.splitext(nombre)[1] or ".mp3"
+    ruta = os.path.join(tempfile.gettempdir(), f"aud_{chat_id}{ext}")
+    try:
+        archivo = await media.get_file()
+        await archivo.download_to_drive(ruta)
+        texto = voz_tools.transcribir(ruta, nombre="audio" + ext)
+    except Exception as e:
+        await update.message.reply_text(f"No pude transcribir el audio, señor: {e}")
+        return
+    if not (texto or "").strip():
+        await update.message.reply_text("No logré transcribir nada del audio, señor.")
+        return
+    historial = HISTORIALES.setdefault(chat_id, [])
+    historial.append({"role": "user", "content": f"Transcripción de un audio:\n\n{texto[:20000]}"})
+    historial.append({"role": "assistant", "content": "Aquí tiene la transcripción, señor."})
+    await update.message.reply_text(
+        "📝 Transcripción:\n\n" + texto + "\n\n(Cópiela si desea, o pídame «resúmelo» o «saca las tareas».)"
+    )
+
+
+async def manejar_audio(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Recibe un archivo de audio adjunto y lo transcribe."""
+    if not _autorizado(update):
+        return
+    a = update.message.audio
+    await _transcribir_y_responder(update, context, a, a.file_name or "audio.mp3")
 
 
 async def manejar_voz(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -258,6 +294,7 @@ def main():
     app.add_handler(CommandHandler("start", start))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, manejar_mensaje))
     app.add_handler(MessageHandler(filters.VOICE, manejar_voz))
+    app.add_handler(MessageHandler(filters.AUDIO, manejar_audio))
     app.add_handler(MessageHandler(filters.Document.ALL, manejar_documento))
 
     # Recordatorio periódico + un "resumen" cada mañana a las 8:00
