@@ -27,6 +27,7 @@ from tools import (
     notion_tools,
     ordenes_tools,
     info_tools,
+    doc_tools,
 )
 
 logging.basicConfig(
@@ -127,6 +128,49 @@ async def brief_matutino(context: ContextTypes.DEFAULT_TYPE):
     )
 
 
+async def manejar_documento(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Recibe un documento (PDF/Word/texto), lo lee y ofrece opciones de resumen."""
+    if not _autorizado(update):
+        return
+    chat_id = update.effective_chat.id
+    doc = update.message.document
+    await context.bot.send_chat_action(chat_id=chat_id, action="typing")
+
+    ruta = os.path.join(tempfile.gettempdir(), f"doc_{chat_id}_{doc.file_name}")
+    try:
+        archivo = await doc.get_file()
+        await archivo.download_to_drive(ruta)
+        texto = doc_tools.extraer_texto(ruta, doc.file_name)
+    except Exception as e:
+        await update.message.reply_text(f"No pude leer el documento, señor: {e}")
+        return
+    if not (texto or "").strip():
+        await update.message.reply_text(
+            "No logré extraer texto de ese documento, señor (¿quizá está escaneado?)."
+        )
+        return
+
+    historial = HISTORIALES.setdefault(chat_id, [])
+    historial.append(
+        {
+            "role": "user",
+            "content": (
+                f"He adjuntado el documento «{doc.file_name}». Su contenido es:\n\n"
+                + texto[:20000]
+            ),
+        }
+    )
+    pregunta = (
+        f"📄 Recibí «{doc.file_name}», señor. ¿Qué resumen desea?\n"
+        "1) 3 a 5 puntos clave\n"
+        "2) Un párrafo\n"
+        "3) Detallado\n"
+        "O hágame cualquier consulta sobre el documento."
+    )
+    historial.append({"role": "assistant", "content": pregunta})
+    await update.message.reply_text(pregunta)
+
+
 async def manejar_voz(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Recibe una nota de voz, la transcribe, responde y contesta también en voz."""
     if not _autorizado(update):
@@ -214,6 +258,7 @@ def main():
     app.add_handler(CommandHandler("start", start))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, manejar_mensaje))
     app.add_handler(MessageHandler(filters.VOICE, manejar_voz))
+    app.add_handler(MessageHandler(filters.Document.ALL, manejar_documento))
 
     # Recordatorio periódico + un "resumen" cada mañana a las 8:00
     job = app.job_queue

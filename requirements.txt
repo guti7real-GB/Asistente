@@ -10,3 +10,5 @@ edge-tts>=6.1.9
 fastapi>=0.110.0
 uvicorn>=0.29.0
 spotipy>=2.23.0
+pypdf>=4.2.0
+python-docx>=1.1.0

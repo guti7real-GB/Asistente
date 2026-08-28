@@ -420,8 +420,10 @@ def _system_prompt() -> str:
         "generales), como lo haría un mayordomo culto y siempre servicial. "
         f"La fecha y hora actual es {ahora.strftime('%A %d/%m/%Y %H:%M')} "
         f"(zona horaria {config.TIMEZONE}). "
-        "Responde SIEMPRE en español, y sé MUY conciso: 2 a 4 frases, porque tus "
-        "respuestas se leen en voz alta. Evita listas largas. "
+        "Responde SIEMPRE en español, y por lo general sé conciso: 2 a 4 frases, porque "
+        "tus respuestas se leen en voz alta. EXCEPCIÓN: cuando el usuario pida resumir un "
+        "documento o pida detalle/explicación extensa, extiéndete lo necesario (puntos, "
+        "párrafos o resumen detallado según pida). "
         "IMPORTANTE para la rapidez: responde directamente con tu propio conocimiento "
         "siempre que puedas. Usa 'buscar_web' SOLO para información que cambia con el "
         "tiempo (noticias de hoy, precios actuales, resultados deportivos recientes, "
@@ -480,7 +482,7 @@ def responder(mensaje_usuario: str, historial: list) -> str:
         mensajes = [{"role": "system", "content": _system_prompt()}] + historial
         respuesta = cliente.chat.completions.create(
             model=config.GROQ_MODEL,
-            max_tokens=500,
+            max_tokens=900,
             tools=HERRAMIENTAS,
             tool_choice="auto",
             messages=mensajes,
